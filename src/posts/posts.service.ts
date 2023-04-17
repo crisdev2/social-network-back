@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Posts } from './posts.entity';
 import { Users } from '../users/users.entity';
 
@@ -23,7 +23,7 @@ export class PostsService {
   public async findAll() {
     return await this.postsRepository.find({
       where: {
-        idParent: null,
+        idParent: IsNull(),
       },
       relations: {
         idAuthor: true,
@@ -38,7 +38,9 @@ export class PostsService {
       relations: {
         idAuthor: true,
         idParent: true,
-        idChildren: true,
+        idChildren: {
+          idAuthor: true,
+        },
       },
     });
 
