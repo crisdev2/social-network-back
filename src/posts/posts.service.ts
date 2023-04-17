@@ -4,19 +4,43 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { IPosts } from './posts.interface';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Posts } from './posts.entity';
+import { Users } from '../users/users.entity';
 
 @Injectable()
 export class PostsService {
-  private posts: Array<IPosts> = [];
   private readonly logger = new Logger(PostsService.name);
 
-  public findAll(): Array<IPosts> {
-    return this.posts;
+  constructor(
+    @InjectRepository(Posts)
+    private postsRepository: Repository<Posts>,
+    @InjectRepository(Users)
+    private usersRepository: Repository<Users>,
+  ) {}
+
+  public async findAll() {
+    return await this.postsRepository.find({
+      where: {
+        idParent: null,
+      },
+      relations: {
+        idAuthor: true,
+        idParent: true,
+      },
+    });
   }
 
-  public findOne(id: number): IPosts {
-    const record: IPosts = this.posts.find((record) => record.id === id);
+  public async findOne(id: number) {
+    const record = await this.postsRepository.findOne({
+      where: { id },
+      relations: {
+        idAuthor: true,
+        idParent: true,
+        idChildren: true,
+      },
+    });
 
     if (!record) {
       throw new NotFoundException('Post not found.');
@@ -25,29 +49,39 @@ export class PostsService {
     return record;
   }
 
-  public create(post: IPosts): IPosts {
-    const maxId: number = Math.max(...this.posts.map((record) => record.id), 0);
-    const id: number = maxId + 1;
-
+  public async create(post: Posts, user: Users) {
     const created = new Date();
 
-    const record: IPosts = {
+    const idAuthor = await this.usersRepository.findOneBy({
+      id: user.id,
+    });
+
+    const data: Posts = {
       ...post,
       created,
-      id,
+      idAuthor,
     };
 
-    this.posts.push(record);
+    const record = await this.postsRepository.save(data);
 
-    return record;
+    return await this.postsRepository.findOne({
+      where: { id: record.id },
+      relations: {
+        idAuthor: true,
+        idParent: true,
+        idChildren: true,
+      },
+    });
   }
 
-  public delete(id: number) {
-    const index: number = this.posts.findIndex((record) => record.id === id);
+  public async delete(id: number) {
+    const record = await this.postsRepository.findOneBy({ id });
 
-    if (index === -1) {
+    if (!record) {
       throw new NotFoundException('Post not found');
     }
+
+    await this.postsRepository.delete(id);
 
     return {
       statusCode: HttpStatus.OK,
@@ -55,22 +89,32 @@ export class PostsService {
     };
   }
 
-  public update(id: number, post: IPosts): IPosts {
+  public async update(id: number, data: Posts) {
     this.logger.log(`Updating post with id: ${id}`);
 
-    const index: number = this.posts.findIndex((record) => record.id === id);
+    const record = await this.postsRepository.findOne({
+      where: { id },
+      relations: { idAuthor: true, idParent: true, idChildren: true },
+    });
 
-    if (index === -1) {
+    if (!record) {
       throw new NotFoundException('Post not found');
     }
 
-    const record: IPosts = {
-      ...post,
-      id,
+    const posts: Posts = {
+      ...record,
+      ...data,
     };
 
-    this.posts[index] = record;
+    const updated = await this.postsRepository.save(posts);
 
-    return record;
+    return await this.postsRepository.findOne({
+      where: { id: updated.id },
+      relations: {
+        idAuthor: true,
+        idParent: true,
+        idChildren: true,
+      },
+    });
   }
 }

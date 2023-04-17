@@ -1,5 +1,7 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
-import { IUsers } from './users.interface';
+import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Users } from './users.entity';
 import * as bcrypt from 'bcrypt';
 
 // This should be a real class/interface representing a user entity
@@ -7,25 +9,32 @@ export type User = any;
 
 @Injectable()
 export class UsersService {
-  private users: Array<IUsers> = [];
+  constructor(
+    @InjectRepository(Users)
+    private usersRepository: Repository<User>,
+  ) {}
 
-  async findOne(username: string): Promise<User | undefined> {
-    return this.users.find((user) => user.username === username);
+  async findOne(username: string) {
+    return this.usersRepository.findOneBy({ username });
   }
 
-  public async create(user: IUsers) {
-    const maxId: number = Math.max(...this.users.map((record) => record.id), 0);
-    const id: number = maxId + 1;
+  public async create(user: Users) {
+    const exist = await this.usersRepository.findOneBy({
+      username: user.username,
+    });
+
+    if (exist) {
+      throw new BadRequestException('User already exists');
+    }
 
     const password = await bcrypt.hash(user.password, 10);
 
-    const record: IUsers = {
+    const record: Users = {
       ...user,
       password,
-      id,
     };
 
-    this.users.push(record);
+    this.usersRepository.save(record);
 
     return {
       statusCode: HttpStatus.OK,

@@ -7,10 +7,13 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
-import { IPosts } from './posts.interface';
+import { Posts } from './posts.entity';
 import { PostsService } from './posts.service';
 import { ApiTags } from '@nestjs/swagger';
+import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('posts')
 @ApiTags('posts')
@@ -18,18 +21,19 @@ export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
   @Get()
-  public findAll(): Array<IPosts> {
-    return this.postsService.findAll();
+  public async findAll() {
+    return await this.postsService.findAll();
   }
 
   @Get(':id')
-  public findOne(@Param('id', ParseIntPipe) id: number): IPosts {
-    return this.postsService.findOne(id);
+  public async findOne(@Param('id', ParseIntPipe) id: number) {
+    return await this.postsService.findOne(id);
   }
 
+  @UseGuards(AuthGuard)
   @Post()
-  public create(@Body() record: IPosts): IPosts {
-    return this.postsService.create(record);
+  public async create(@Body() record: Posts, @Request() req) {
+    return await this.postsService.create(record, req.user);
   }
 
   @Delete(':id')
@@ -38,10 +42,10 @@ export class PostsController {
   }
 
   @Put(':id')
-  public update(
+  public async update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() record: IPosts,
-  ): IPosts {
-    return this.postsService.update(id, record);
+    @Body() record: Posts,
+  ) {
+    return await this.postsService.update(id, record);
   }
 }

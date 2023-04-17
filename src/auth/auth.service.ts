@@ -20,7 +20,12 @@ export class AuthService {
     if (!match) {
       throw new UnauthorizedException();
     }
-    const payload = { username: user.username, sub: user.id };
+    const payload = {
+      username: user.username,
+      role: user.role,
+      image: user.image,
+      sub: user.id,
+    };
     // TODO: Generate a JWT and return it here
     // instead of the user object
     return {
